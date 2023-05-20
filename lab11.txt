@@ -1,0 +1,220 @@
+%Part 1: On built-in lists and numbers
+
+% search2 (Elem , List )
+% looks for two consecutive occurrences of Elem
+
+search2(E, [E, E | T]).
+search2(E, [_ | T]) :- search2(E, T).
+
+
+% search_two (Elem , List )
+% looks for two occurrences of Elem with any element in between !
+
+search_two(E, [E, _, E | T]).
+search_two(E, [_ | T]) :- search_two(E, T).
+
+
+% size (List , Size )
+% Size will contain the number of elements in List
+%not fully relational
+
+size([], 0).
+size([_ | T], S) :- size(T, S2), S is S2 + 1.
+
+
+% sum(List , Sum )
+
+sum([], 0).
+sum([H | T], S) :- sum(T, S2), S is S2 + H.
+
+
+% max(List ,Max , Min )
+% Max is the biggest element in List
+% Min is the smallest element in List
+% Suppose the list has at least one element
+
+max([H | T], Max, Min) :- max(T, H, H, Max, Min).
+max([], Max, Min, Max, Min).
+max([H | T], TMax, TMin, Max, Min) :- H > TMax, max(T, H, TMin, Max, Min).
+max([H | T], TMax, TMin, Max, Min) :- H < TMin, max(T, TMax, H, Max, Min).
+max([H | T], TMax, TMin, Max, Min) :- H =< TMax, H >= TMin, max(T, TMax, TMin, Max, Min).
+
+
+% sublist (List1 , List2 )
+% List1 should contain elements all also in List2
+% example : sublist ([1 ,2] ,[5 ,3 ,2 ,1]).
+
+sublist([], _).
+sublist([H | T], L) :- member(H, L), sublist(T, L).
+
+
+%Part 2: basic cut operations
+
+% dropAny (? Elem ,? List ,? OutList )
+
+dropAny (X , [X | T], T).
+dropAny (X , [H | Xs ], [H | L ]) :- dropAny (X , Xs , L ).
+
+
+%dropFirst: drops only the first occurrence (showing no alternative results)
+
+dropFirst(X, [X | T], T) :- !.
+dropFirst(X , [H | T ], [H | T2 ]) :- dropFirst(X, T, T2).
+
+%dropLast: drops only the last occurrence (showing no alternative results)
+
+dropLast(X , [H | T ], [H | T2 ]) :- dropLast(X, T, T2), !.
+dropLast(X, [X | T], T).
+
+
+%dropAll: drop all occurrences, returning a single list as a result
+
+dropAll(X, [], []).
+dropAll(X, [X | T], L) :- dropAll(X, T, L), !.
+dropAll(X, [H | T ], [H | T2 ]) :- dropAll(X, T, T2).
+
+
+%Part 3: Operations on graphs
+
+% fromList (+ List ,- Graph )
+
+fromList ([ _ ] ,[]).
+fromList ([ H1 , H2 |T ] ,[ e(H1 , H2 ) |L ]) :- fromList ([ H2 |T ],L).
+
+
+% fromCircList (+ List ,- Graph )
+
+fromCircList([H | T], G) :- fromCircList([H | T], H, G).
+fromCircList([H1], H, [e(H1, H)]).
+fromCircList([H1, H2 | T], H, [e(H1, H2) | L]) :- fromCircList([H2 | T], H, L).
+
+% outDegree (+ Graph , +Node , -Deg )
+% Deg is the number of edges leading out of the Node
+
+outDegree([], N, 0).
+outDegree([e(N, _) | L], N, D) :- outDegree(L, N, D2), D is D2 + 1, !.
+outDegree([e(H1, _) | L], N, D) :- outDegree(L, N, D).  
+
+% dropNode (+ Graph , +Node , -OutGraph )
+% drop all edges starting and leaving from a Node
+% use dropAll defined in 1.1??
+
+dropNode(G, N, GO) :- dropAll(e(N, _), G, G2), dropAll(e(_, N), G2, GO).
+%non funziona 
+%dropNode([e(1,2),e(1,3),e(2,3)],1,G) -> G : [e(1, 3), e(2, 3)]
+
+
+% reaching (+ Graph , +Node , -List )
+% all the nodes that can be reached in 1 step from Node
+% possibly use findall , looking for e(Node ,_) combined
+% with member (? Elem ,? List )
+
+reaching(G, N, L) :- findall(N2, member(e(N, N2), G), L).
+
+
+% nodes (+ Graph , -Nodes )
+% craate a list of all nodes (no duplicates ) in the graph ( inverse of fromList )
+
+%filtrando ogni valore
+nodes(G, L) :- nodes(G, [], L).
+nodes([], L, L).
+nodes([e(H1, H2) | L], L2, L3):- append_non_duplicate(L2, H1, L4), 
+    append_non_duplicate(L4, H2, L5), 
+    nodes(L, L5, L3).
+append_non_duplicate(L, E, L) :- member(E, L), !. 
+append_non_duplicate(L, E, L2) :- append(L, [E], L2). 
+
+%filtrando alla fine (list_to_set non funziona)
+%nodes2(G, L) :- nodes2(G, [], L).
+%nodes2([], L2, L):- list_to_set(L2, L3), L == L3.
+%nodes2([e(H1, H2) | L], L2, L3):- append(L2, [H1, H2], L4), nodes2(L, L4, L3).
+
+
+% anypath (+ Graph , +Node1 , +Node2 , -ListPath )
+% a path from Node1 to Node2
+% if there are many path , they are showed 1-by -1
+
+anypath(G, N, N, []).
+anypath(G, H1, N2, [e(H1, H2) | T]) :- member(e(H1, H2), G), anypath(G, H2, N2, T).
+
+
+% allreaching (+ Graph , +Node , -List )
+% all the nodes that can be reached from Node
+% Suppose the graph is NOT circular !
+% Use findall and anyPath !
+
+allreaching(G, N, L) :- findall(N2, (anypath(G, N, N2, _), N =\= N2), L).
+
+%During last lesson we see how to generate a grid-like network. Adapt
+%that code to create a graph for the predicates implemented so far.
+
+gridgraph(N, M, L) :- findall(E, graph(N, M, E), L).
+
+graph(N, M, e(H1, H2)) :-  
+    gridlink(N, M, link(X, Y, X2, Y2)),
+    G1 is (X * M) + Y,
+    G2 is (X2 * M) + Y2.
+
+interval(A, B, A ).
+interval(A, B, X ) :- A2 is A + 1, A2 < B, interval(A2, B, X).
+
+neighbour(A, B, A, B2 ) :- B2 is B + 1.
+neighbour(A, B, A, B2 ) :- B2 is B - 1.
+neighbour(A, B, A2, B) :- A2 is A + 1.
+neighbour(A, B, A2, B) :- A2 is A - 1.
+
+gridlink(N, M, link(X, Y, X2, Y2)) :- 
+    interval(0, N, X), interval(0, M, Y),
+    neighbour(X, Y, X2, Y2), 
+    X2 >= 0, Y2 >= 0, X2 < N , Y2 < M.
+
+%Part 4: Generating Connect3 (“forza 3”)
+
+%next(@Table,@Player,-Result,-NewTable)
+%[[n,n,n],[n,o,x],[o,x,o]] for Table
+%assumptions: grid 3*3; T can be illegal; T can be complete,
+%T can already have a winner, result draw if both player wins in T2 or if T2 is full
+%result nothing if nobody win and T2 is not complete 
+
+next(T, P, R, T2):- 
+    legal_table(T), %check if T is a legal table
+    select(n, T, P, T2), %generate all possible table
+    legal_table(T2), %filter only next legal table
+    check_winner(T2, R).
+
+%variant of select that works with sublist
+select(X, [X | T], Y, [Y | T]).
+select(X, [[H | L] | T], Y, [[H2 | L2] | T]) :- select(X, [H | L], Y, [H2 | L2]).
+select(X, [H | T], Y, [H | T2]) :- select(X, T, Y, T2).
+
+%check if the Table is legal (thinked to work for a n*m grid
+legal_table([_]).
+legal_table([L1, L2 | T]) :- legal_rows([L1, L2]), legal_table([L2 | T]).
+
+%check for pair of rows
+legal_rows([[], []]).
+legal_rows([[n | L1], [_ | L2]]) :- legal_rows([L1, L2]).
+legal_rows([[S | L1], [S2 | L2]]) :- player(S), player(S2), legal_rows([L1, L2]). 
+ 
+player(x).
+player(o).
+
+check_winner(T, even) :- won(T, x), won(T, o), !. %both winners
+check_winner(T, win(P)) :- player(P), won(T, P), !. %only one winner
+check_winner([[C1, C2, C3] | _], even) :- player(C1), player(C2), player(C3), !. %full table, nobody wins
+check_winner(T, nothing). %not full table, nobody wins
+
+won([[P, P, P], _, _], P) :- !. % Top row
+won([_, [P, P, P], _], P) :- !. % Middle row
+won([_, _, [P, P, P]], P) :- !. % Bottom row
+won([[P, _, _], [P, _, _], [P, _, _]], P) :- !.   % Left column
+won([[_, P, _], [_, P, _], [_, P, _]], P) :- !.   % Middle column
+won([[_, _, P], [_, _, P], [_, _, P]], P) :- !.   % Right column
+won([[P, _, _], [_, P, _], [_, _, P]], P) :- !.   % Top-left to bottom-right diagonal
+won([[_, _, P], [_, P, _], [P, _, _]], P) :- !.   % Top-right to bottom-left diagonal
+
+%game(@Table,@Player,-Result,-TableList)
+
+game(T, P, R, [T, T2]) :- next(T, P, R, T2), R \= nothing, !.
+game(T, x, R, [T | L]) :- next(T, x, nothing, T2), game(T2, o, R, L).
+game(T, o, R, [T | L]) :- next(T, o, nothing, T2), game(T2, x, R, L).
